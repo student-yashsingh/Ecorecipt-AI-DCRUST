@@ -6,6 +6,8 @@ import ReceiptMode from './pages/ReceiptMode'
 import OnlineMode from './pages/OnlineMode'
 import Leaderboard from './pages/Leaderboard'
 import useStore from './store/useStore'
+import Profile from './pages/Profile'
+
 
 function ProtectedRoute({ children }) {
   const user = useStore(state => state.user)
@@ -31,6 +33,7 @@ export default function App() {
         <Route path="/leaderboard" element={
           <ProtectedRoute><Leaderboard /></ProtectedRoute>
         } />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </BrowserRouter>
   )
