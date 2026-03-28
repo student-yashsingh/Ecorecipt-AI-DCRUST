@@ -1,480 +1,436 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import useStore from "../store/useStore";
+import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import useStore from '../store/useStore'
 
-const API = "http://127.0.0.1:8000";
+const API = 'http://127.0.0.1:8000'
 
-const GRADE_CONFIG = {
-  "A+": { color: "#1a6b3c", bg: "rgba(26,107,60,0.08)", border: "rgba(26,107,60,0.25)", label: "Outstanding", emoji: "🌟" },
-  "A":  { color: "#2d9b5a", bg: "rgba(45,155,90,0.08)", border: "rgba(45,155,90,0.25)", label: "Excellent",    emoji: "✨" },
-  "B":  { color: "#d97706", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.25)",  label: "Good",         emoji: "👍" },
-  "C":  { color: "#ea580c", bg: "rgba(234,88,12,0.08)",  border: "rgba(234,88,12,0.25)",  label: "Average",      emoji: "⚠️" },
-  "D":  { color: "#dc2626", bg: "rgba(220,38,38,0.08)",  border: "rgba(220,38,38,0.25)",  label: "Poor",         emoji: "📉" },
-  "F":  { color: "#9b1c1c", bg: "rgba(155,28,28,0.08)",  border: "rgba(155,28,28,0.25)",  label: "Very High Impact", emoji: "🔴" },
-};
+function carbonColor(score) {
+  if (score <= 1.0) return { bg: 'rgba(74,124,89,0.12)',  text: '#2d5a3d', grade: 'A+' }
+  if (score <= 2.5) return { bg: 'rgba(74,124,89,0.08)',  text: '#4a7c59', grade: 'A'  }
+  if (score <= 5.0) return { bg: 'rgba(212,160,23,0.12)', text: '#8a6000', grade: 'B'  }
+  if (score <= 10)  return { bg: 'rgba(193,102,58,0.12)', text: '#9a4a25', grade: 'C'  }
+  return                   { bg: 'rgba(180,40,40,0.10)',  text: '#8b0000', grade: 'D'  }
+}
 
-const CARBON_COLOR = (kg) =>
-  kg > 5 ? "#dc2626" : kg > 2 ? "#ea580c" : kg > 1 ? "#d97706" : "#1a6b3c";
+function gradeConfig(grade) {
+  const map = {
+    'A+': { color: '#2d5a3d', bg: 'rgba(74,124,89,0.12)',  label: 'Excellent' },
+    'A':  { color: '#4a7c59', bg: 'rgba(74,124,89,0.1)',   label: 'Great'     },
+    'B':  { color: '#8a6000', bg: 'rgba(212,160,23,0.1)',  label: 'Good'      },
+    'C':  { color: '#9a4a25', bg: 'rgba(193,102,58,0.1)',  label: 'Average'   },
+    'D':  { color: '#7a3020', bg: 'rgba(180,80,40,0.1)',   label: 'Poor'      },
+    'F':  { color: '#8b0000', bg: 'rgba(180,40,40,0.1)',   label: 'Bad'       },
+  }
+  return map[grade] || map['C']
+}
+
+// ── helper: get carbon value from any item shape ──
+function getCarbon(item) {
+  return item.carbon_kg ?? item.carbon_score ?? item.score ?? 0
+}
 
 export default function ReceiptMode() {
-  const navigate = useNavigate();
-  const { user, setUser, firebaseUser } = useStore();
-  const fileInputRef = useRef(null);
+  const navigate     = useNavigate()
+  const firebaseUser = useStore(s => s.firebaseUser)
+  const setUser      = useStore(s => s.setUser)
+  const user         = useStore(s => s.user)
 
-  const [image,    setImage]    = useState(null);
-  const [preview,  setPreview]  = useState(null);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState("");
-  const [result,   setResult]   = useState(null);
-  const [dragging, setDragging] = useState(false);
+  const [file, setFile]         = useState(null)
+  const [preview, setPreview]   = useState(null)
+  const [loading, setLoading]   = useState(false)
+  const [result, setResult]     = useState(null)
+  const [error, setError]       = useState('')
+  const [dragOver, setDragOver] = useState(false)
+  const fileRef = useRef()
 
-  function handleFile(file) {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Please upload an image file (JPG, PNG, etc.)");
-      return;
-    }
-    setError("");
-    setResult(null);
-    setImage(file);
-    setPreview(URL.createObjectURL(file));
+  function handleFile(f) {
+    if (!f) return
+    if (!f.type.startsWith('image/')) { setError('Please upload an image file (JPG, PNG, etc.)'); return }
+    setFile(f); setError(''); setResult(null)
+    const reader = new FileReader()
+    reader.onload = e => setPreview(e.target.result)
+    reader.readAsDataURL(f)
   }
 
-  function onDrop(e) {
-    e.preventDefault();
-    setDragging(false);
-    handleFile(e.dataTransfer.files[0]);
+  function handleDrop(e) {
+    e.preventDefault(); setDragOver(false)
+    handleFile(e.dataTransfer.files[0])
   }
 
   async function analyseReceipt() {
-    if (!image) return;
-    setLoading(true);
-    setError("");
+    if (!file) { setError('Please upload a receipt image first'); return }
+    setLoading(true); setError('')
     try {
-      const form = new FormData();
-      form.append("file", image);
-      const res  = await fetch(`${API}/api/receipt/analyze`, {
-        method:  "POST",
-        headers: { Authorization: `Bearer ${await firebaseUser.getIdToken()}` },
-        body:    form,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Analysis failed");
-      setResult(data);
-      if (data.new_total_points !== undefined)
-        setUser({ ...user, points: data.new_total_points, tier: data.tier });
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      const token = await firebaseUser.getIdToken()
+      const form  = new FormData()
+      form.append('file', file)
+      const res = await fetch(`${API}/api/receipt/analyze`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Analysis failed') }
+      const data = await res.json()
+      setResult(data)
+      if (user) setUser({ ...user, points: data.new_total_points, tier: data.tier })
+    } catch (e) {
+      setError(e.message || 'Something went wrong. Try again.')
     }
+    setLoading(false)
   }
 
-  function reset() {
-    setImage(null);
-    setPreview(null);
-    setResult(null);
-    setError("");
-  }
+  function reset() { setFile(null); setPreview(null); setResult(null); setError('') }
 
-  const grade = result ? (GRADE_CONFIG[result.eco_score] || GRADE_CONFIG["C"]) : null;
+  // ── RESULTS VIEW ──────────────────────────────────────────
+  if (result) {
+    const gc          = gradeConfig(result.eco_score)
+    const totalCarbon = result.total_carbon_kg?.toFixed(2) || '0.00'
+    const maxCarbon   = Math.max(...(result.items?.map(getCarbon) || [1]), 0.01)
 
-  return (
-    <div
-      className="min-h-screen"
-      style={{ background: "linear-gradient(145deg,#e8f5e9 0%,#f0f7f0 50%,#e0f2f1 100%)" }}
-    >
-      {/* ── Navbar ── */}
-      <nav
-        className="sticky top-0 z-50 px-6 py-4 flex items-center justify-between"
-        style={{
-          background:    "rgba(255,255,255,0.7)",
-          backdropFilter:"blur(20px)",
-          borderBottom:  "1px solid rgba(26,107,60,0.08)",
-        }}
-      >
-        <button
-          onClick={() => navigate("/home")}
-          className="flex items-center gap-2 font-semibold text-sm transition-all hover:scale-105"
-          style={{ color: "#1a6b3c" }}
-        >
-          ← Back
-        </button>
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🧾</span>
-          <span
-            className="font-black text-lg"
-            style={{ color: "#1a3d1a", fontFamily: "Fraunces, serif" }}
-          >
-            Receipt Mode
-          </span>
-        </div>
-        <div
-          className="px-3 py-1 rounded-full text-xs font-bold"
-          style={{ background: "rgba(26,107,60,0.08)", color: "#1a6b3c" }}
-        >
-          🌿 {user?.points || 0} pts
-        </div>
-      </nav>
+    return (
+      <div style={s.page}>
+        <div style={s.bgBase} /><div style={s.bgGlow1} /><div style={s.bgGlow2} />
 
-      <div className="max-w-xl mx-auto px-4 py-8 space-y-5">
+        <nav style={s.nav}>
+          <button style={s.backBtn} onClick={reset}>← Scan Another</button>
+          <span style={s.navTitle}>Receipt Analysis</span>
+          <button style={s.navHome} onClick={() => navigate('/home')}>🏠 Home</button>
+        </nav>
 
-        {/* ── Upload Phase ── */}
-        {!result && (
-          <>
-            {/* Hero text */}
-            <div className="text-center pt-2 pb-1">
-              <h1
-                className="text-3xl font-black mb-2"
-                style={{ color: "#1a3d1a", fontFamily: "Fraunces, serif" }}
-              >
-                Scan Your Receipt
-              </h1>
-              <p className="text-sm" style={{ color: "#5a7a5a" }}>
-                Upload any grocery receipt and our AI calculates your carbon footprint instantly
-              </p>
+        <div style={s.resultsWrap}>
+
+          {/* Score hero */}
+          <div style={s.scoreHero}>
+            <div style={s.scoreDecos}>
+              <div style={s.scoreDeco1} /><div style={s.scoreDeco2} />
             </div>
-
-            {/* Points reminder */}
-            <div
-              className="rounded-2xl p-4 flex items-center gap-4"
-              style={{
-                background: "rgba(255,255,255,0.6)",
-                border:     "1px solid rgba(26,107,60,0.12)",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              {[
-                { pts: "+10",  label: "Submitting", icon: "📤" },
-                { pts: "+50",  label: "Eco Score A+", icon: "🌟" },
-                { pts: "+40",  label: "Eco Score A",  icon: "✨" },
-              ].map((item, i) => (
-                <div key={i} className="flex-1 text-center">
-                  <div className="text-lg mb-0.5">{item.icon}</div>
-                  <div className="font-black text-sm" style={{ color: "#1a6b3c" }}>{item.pts}</div>
-                  <div className="text-xs" style={{ color: "#5a7a5a" }}>{item.label}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Drop zone */}
-            <div
-              onClick={() => fileInputRef.current.click()}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
-              className="rounded-3xl p-8 text-center cursor-pointer transition-all duration-300"
-              style={{
-                background:   dragging
-                  ? "rgba(26,107,60,0.08)"
-                  : "rgba(255,255,255,0.55)",
-                border:       `2px dashed ${dragging ? "#1a6b3c" : "rgba(26,107,60,0.25)"}`,
-                backdropFilter: "blur(10px)",
-                transform:    dragging ? "scale(1.01)" : "scale(1)",
-              }}
-            >
-              {preview ? (
-                <div className="space-y-3">
-                  <img
-                    src={preview}
-                    alt="Receipt preview"
-                    className="max-h-64 mx-auto rounded-2xl object-contain shadow-lg"
-                    style={{ border: "1px solid rgba(26,107,60,0.15)" }}
-                  />
-                  <p className="text-sm font-medium" style={{ color: "#1a6b3c" }}>
-                    ✅ {image.name}
-                  </p>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); reset(); }}
-                    className="text-xs px-3 py-1 rounded-full transition-all hover:scale-105"
-                    style={{ background: "rgba(220,38,38,0.08)", color: "#dc2626" }}
-                  >
-                    ✕ Remove
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4 py-4">
-                  <div
-                    className="w-20 h-20 rounded-3xl flex items-center justify-center text-4xl mx-auto"
-                    style={{ background: "rgba(26,107,60,0.08)" }}
-                  >
-                    🧾
-                  </div>
-                  <div>
-                    <p className="font-black text-lg" style={{ color: "#1a3d1a", fontFamily: "Fraunces, serif" }}>
-                      Drop your receipt here
-                    </p>
-                    <p className="text-sm mt-1" style={{ color: "#5a7a5a" }}>
-                      or click to browse files
-                    </p>
-                  </div>
-                  <div
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
-                    style={{ background: "rgba(26,107,60,0.08)", color: "#1a6b3c" }}
-                  >
-                    📁 JPG, PNG · Max 10MB
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleFile(e.target.files[0])}
-            />
-
-            {/* Error */}
-            {error && (
-              <div
-                className="rounded-2xl p-4 text-sm flex items-start gap-3"
-                style={{
-                  background: "rgba(220,38,38,0.06)",
-                  border:     "1px solid rgba(220,38,38,0.2)",
-                  color:      "#dc2626",
-                }}
-              >
-                <span className="text-lg">⚠️</span>
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Analyse button */}
-            <button
-              onClick={analyseReceipt}
-              disabled={!image || loading}
-              className="w-full py-4 rounded-2xl font-black text-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-              style={{
-                background: image && !loading
-                  ? "linear-gradient(135deg, #1a3d1a, #1a6b3c)"
-                  : "rgba(26,107,60,0.1)",
-                color:      image && !loading ? "white" : "#9db89d",
-                cursor:     image && !loading ? "pointer" : "not-allowed",
-                boxShadow:  image && !loading
-                  ? "0 8px 32px rgba(26,107,60,0.25)"
-                  : "none",
-                fontFamily: "Fraunces, serif",
-              }}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-3">
-                  <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10"
-                      stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8H4z"/>
-                  </svg>
-                  Analysing with AI...
-                </span>
-              ) : (
-                "🔍 Analyse Receipt"
-              )}
-            </button>
-          </>
-        )}
-
-        {/* ── Results Phase ── */}
-        {result && grade && (
-          <div className="space-y-5">
-
-            {/* Eco score hero */}
-            <div
-              className="rounded-3xl p-8 text-center relative overflow-hidden"
-              style={{
-                background:     grade.bg,
-                border:         `1px solid ${grade.border}`,
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <div
-                className="absolute -top-8 -right-8 w-32 h-32 rounded-full opacity-10"
-                style={{ background: `radial-gradient(circle, ${grade.color}, transparent)` }}
-              />
-              <p className="text-sm font-semibold mb-2" style={{ color: grade.color }}>
-                {grade.emoji} {grade.label}
-              </p>
-              <div
-                className="text-8xl font-black mb-3"
-                style={{ color: grade.color, fontFamily: "Fraunces, serif" }}
-              >
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <p style={s.scoreLabel}>ECO SCORE</p>
+              <div style={{ ...s.scoreBadge, background: gc.bg, color: gc.color }}>
                 {result.eco_score}
               </div>
-              <div className="flex items-center justify-center gap-4 text-sm" style={{ color: "#5a7a5a" }}>
-                <span>🌍 {result.total_carbon_kg} kg CO₂</span>
-                <span>·</span>
-                <span>🛒 {result.item_count} items</span>
+              <p style={{ ...s.scoreSubLabel, color: gc.color }}>{gc.label}</p>
+            </div>
+            <div style={s.scoreStats}>
+              <div style={s.scoreStat}>
+                <div style={s.scoreStatVal}>{totalCarbon}kg</div>
+                <div style={s.scoreStatLabel}>Total CO₂</div>
+              </div>
+              <div style={s.scoreStatDivider} />
+              <div style={s.scoreStat}>
+                <div style={{ ...s.scoreStatVal, color: '#4a7c59' }}>+{result.points_earned}</div>
+                <div style={s.scoreStatLabel}>Points Earned</div>
+              </div>
+              <div style={s.scoreStatDivider} />
+              <div style={s.scoreStat}>
+                <div style={s.scoreStatVal}>{result.item_count}</div>
+                <div style={s.scoreStatLabel}>Items Found</div>
               </div>
             </div>
+          </div>
 
-            {/* Points earned */}
-            <div
-              className="rounded-2xl p-5 flex items-center justify-between"
-              style={{
-                background:     "rgba(255,255,255,0.6)",
-                border:         "1px solid rgba(26,107,60,0.15)",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <div>
-                <p
-                  className="font-black text-xl"
-                  style={{ color: "#1a6b3c", fontFamily: "Fraunces, serif" }}
-                >
-                  +{result.points_earned} pts earned!
-                </p>
-                <p className="text-sm mt-0.5" style={{ color: "#5a7a5a" }}>
-                  Total: {result.new_total_points} pts · {result.tier}
-                </p>
-              </div>
-              <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
-                style={{ background: "rgba(26,107,60,0.08)" }}
-              >
-                🏆
+          {/* Points toast */}
+          <div style={s.pointsToast}>
+            <span style={{ fontSize: 24 }}>🎉</span>
+            <div>
+              <div style={s.toastTitle}>+{result.points_earned} points earned!</div>
+              <div style={s.toastSub}>
+                New total: {result.new_total_points?.toLocaleString()} pts · Tier: {result.tier}
               </div>
             </div>
+          </div>
 
-            {/* Items list */}
-            <div
-              className="rounded-3xl overflow-hidden"
-              style={{
-                background:     "rgba(255,255,255,0.6)",
-                border:         "1px solid rgba(26,107,60,0.12)",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <div
-                className="px-5 py-4"
-                style={{ borderBottom: "1px solid rgba(26,107,60,0.08)" }}
-              >
-                <h2
-                  className="font-black"
-                  style={{ color: "#1a3d1a", fontFamily: "Fraunces, serif" }}
-                >
-                  Items Analysed
-                </h2>
-              </div>
-              <div className="divide-y" style={{ borderColor: "rgba(26,107,60,0.06)" }}>
-                {result.items.map((item, i) => (
-                  <div key={i} className="px-5 py-4 flex items-start gap-3">
-                    {/* Carbon dot indicator */}
-                    <div
-                      className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
-                      style={{ background: CARBON_COLOR(item.carbon_kg) }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className="font-semibold capitalize truncate"
-                        style={{ color: "#1a3d1a" }}
-                      >
-                        {item.item_name}
-                      </p>
-                      {item.alternative && item.category !== "Low" && (
-                        <p className="text-xs mt-0.5" style={{ color: "#1a6b3c" }}>
-                          💡 {item.alternative}
-                        </p>
-                      )}
+          {/* Items list */}
+          <div style={s.itemsCard}>
+            <h3 style={s.itemsTitle}>📋 Items Analysed ({result.item_count})</h3>
+            <div style={s.itemsList}>
+              {result.items?.map((item, i) => {
+                const carbon = getCarbon(item)
+                const c      = carbonColor(carbon)
+                return (
+                  <div key={i} style={s.itemRow}>
+                    <div style={s.itemLeft}>
+                      <div style={{ ...s.itemDot, background: c.text }} />
+                      <div>
+                        <div style={s.itemName}>{item.item_name || item.name}</div>
+                        {item.alternative && item.category !== 'Low' && (
+                          <div style={s.itemAlt}>💡 {item.alternative}</div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p
-                        className="font-black text-sm"
-                        style={{ color: CARBON_COLOR(item.carbon_kg) }}
-                      >
-                        {item.carbon_kg} kg
-                      </p>
-                      <p className="text-xs mt-0.5" style={{ color: "#9db89d" }}>
-                        {item.category}
-                      </p>
+                    <div style={s.itemRight}>
+                      <div style={{ ...s.itemBadge, background: c.bg, color: c.text }}>
+                        {c.grade} · {carbon.toFixed(2)}kg
+                      </div>
                     </div>
                   </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Carbon breakdown bar chart */}
+          <div style={s.breakdownCard}>
+            <h3 style={s.itemsTitle}>🌍 Carbon Breakdown (Top 5)</h3>
+            {result.items
+              ?.slice()
+              .sort((a, b) => getCarbon(b) - getCarbon(a))
+              .slice(0, 5)
+              .map((item, i) => {
+                const carbon = getCarbon(item)
+                const pct    = Math.round((carbon / maxCarbon) * 100)
+                const c      = carbonColor(carbon)
+                return (
+                  <div key={i} style={s.barRow}>
+                    <div style={s.barLabel}>{item.item_name || item.name}</div>
+                    <div style={s.barTrack}>
+                      <div style={{ ...s.barFill, width: `${pct}%`, background: c.text }} />
+                    </div>
+                    <div style={{ ...s.barVal, color: c.text }}>{carbon.toFixed(2)}kg</div>
+                  </div>
+                )
+              })}
+          </div>
+
+          {/* Actions */}
+          <div style={s.actionRow}>
+            <button className="btn-primary"
+              style={{ flex: 1, padding: '14px 0', fontSize: 15 }}
+              onClick={reset}>
+              📸 Scan Another
+            </button>
+            <button
+              style={{
+                flex: 1, padding: '14px 0', fontSize: 15,
+                background: 'linear-gradient(135deg, #1a3d1a, #1a6b3c)',
+                color: 'white', border: 'none', borderRadius: 100,
+                fontWeight: 700, cursor: 'pointer',
+              }}
+              onClick={() => navigate('/online')}>
+              🛒 Shop Greener
+            </button>
+          </div>
+
+        </div>
+        <style>{`
+          @keyframes glowPulse { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.05)} }
+          @keyframes spin { to{transform:rotate(360deg)} }
+          @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+        `}</style>
+      </div>
+    )
+  }
+
+  // ── UPLOAD VIEW ───────────────────────────────────────────
+  return (
+    <div style={s.page}>
+      <div style={s.bgBase} /><div style={s.bgGlow1} /><div style={s.bgGlow2} />
+
+      <nav style={s.nav}>
+        <button style={s.backBtn} onClick={() => navigate('/home')}>← Home</button>
+        <span style={s.navTitle}>Receipt Mode</span>
+        <div style={{ width: 80 }} />
+      </nav>
+
+      <div style={s.uploadWrap}>
+
+        <div style={s.header}>
+          <div style={s.headerIcon}>🧾</div>
+          <h1 style={s.headerTitle}>Scan Your Receipt</h1>
+          <p style={s.headerSub}>
+            Upload any grocery receipt. Our AI will read every item
+            and score your carbon footprint instantly.
+          </p>
+        </div>
+
+        {/* Drop zone */}
+        <div
+          style={{
+            ...s.dropZone,
+            borderColor: dragOver || file ? '#1a6b3c' : '#d4c5b0',
+            background: dragOver ? 'rgba(74,124,89,0.06)' : file ? 'rgba(74,124,89,0.04)' : 'rgba(255,255,255,0.7)',
+            transform: dragOver ? 'scale(1.01)' : 'scale(1)',
+          }}
+          onDrop={handleDrop}
+          onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onClick={() => !file && fileRef.current?.click()}
+        >
+          <input ref={fileRef} type="file" accept="image/*"
+            style={{ display: 'none' }}
+            onChange={e => handleFile(e.target.files[0])} />
+
+          {preview ? (
+            <div style={s.previewWrap}>
+              <img src={preview} alt="Receipt" style={s.previewImg} />
+            </div>
+          ) : (
+            <div style={s.dropContent}>
+              <div style={s.dropIcon}>{dragOver ? '📂' : '📸'}</div>
+              <p style={s.dropTitle}>{dragOver ? 'Drop it here!' : 'Drop your receipt here'}</p>
+              <p style={s.dropSub}>or click to browse · JPG, PNG supported</p>
+              <div style={s.dropHints}>
+                {['🧾 Any grocery bill', '📱 Phone photos work', '🔍 Any quality'].map((h, i) => (
+                  <span key={i} style={s.dropHint}>{h}</span>
                 ))}
               </div>
             </div>
+          )}
+        </div>
 
-            {/* Carbon breakdown bar */}
-            <div
-              className="rounded-2xl p-5"
-              style={{
-                background:     "rgba(255,255,255,0.6)",
-                border:         "1px solid rgba(26,107,60,0.12)",
-                backdropFilter: "blur(10px)",
-              }}
-            >
-              <p className="text-sm font-bold mb-3" style={{ color: "#1a3d1a" }}>
-                Impact Breakdown
-              </p>
-              <div className="space-y-2">
-                {result.items
-                  .slice()
-                  .sort((a, b) => b.carbon_kg - a.carbon_kg)
-                  .slice(0, 5)
-                  .map((item, i) => {
-                    const max  = result.total_carbon_kg || 1;
-                    const pct  = Math.max(4, (item.carbon_kg / max) * 100);
-                    return (
-                      <div key={i} className="flex items-center gap-3">
-                        <p
-                          className="text-xs capitalize w-28 truncate flex-shrink-0"
-                          style={{ color: "#5a7a5a" }}
-                        >
-                          {item.item_name}
-                        </p>
-                        <div
-                          className="flex-1 rounded-full h-2"
-                          style={{ background: "rgba(26,107,60,0.08)" }}
-                        >
-                          <div
-                            className="h-2 rounded-full transition-all duration-700"
-                            style={{
-                              width:      `${pct}%`,
-                              background: CARBON_COLOR(item.carbon_kg),
-                            }}
-                          />
-                        </div>
-                        <p
-                          className="text-xs font-bold w-12 text-right flex-shrink-0"
-                          style={{ color: CARBON_COLOR(item.carbon_kg) }}
-                        >
-                          {item.carbon_kg}kg
-                        </p>
-                      </div>
-                    );
-                  })}
-              </div>
+        {/* File info */}
+        {file && (
+          <div style={s.fileInfo}>
+            <span style={{ fontSize: 18 }}>📄</span>
+            <div style={{ flex: 1 }}>
+              <div style={s.fileName}>{file.name}</div>
+              <div style={s.fileSize}>{(file.size / 1024).toFixed(1)} KB</div>
             </div>
-
-            {/* Action buttons */}
-            <div className="flex gap-3 pb-4">
-              <button
-                onClick={reset}
-                className="flex-1 py-3.5 rounded-2xl font-bold text-sm transition-all hover:scale-[1.02]"
-                style={{
-                  background: "rgba(255,255,255,0.6)",
-                  border:     "1px solid rgba(26,107,60,0.2)",
-                  color:      "#1a6b3c",
-                }}
-              >
-                📷 Scan Another
-              </button>
-              <button
-                onClick={() => navigate("/home")}
-                className="flex-1 py-3.5 rounded-2xl font-black text-sm transition-all hover:scale-[1.02]"
-                style={{
-                  background: "linear-gradient(135deg, #1a3d1a, #1a6b3c)",
-                  color:      "white",
-                  boxShadow:  "0 4px 16px rgba(26,107,60,0.25)",
-                  fontFamily: "Fraunces, serif",
-                }}
-              >
-                🏠 Home
-              </button>
-            </div>
-
+            <button style={s.removeBtn} onClick={reset}>✕</button>
           </div>
         )}
+
+        {error && <div style={s.errorBox}>⚠️ {error}</div>}
+
+        {/* Analyse button */}
+        <button className="btn-primary"
+          onClick={analyseReceipt}
+          disabled={!file || loading}
+          style={{ width: '100%', padding: '16px 0', fontSize: 17, marginBottom: 16 }}>
+          {loading ? (
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+              <span style={s.spinner} /> Analysing with AI...
+            </span>
+          ) : '🤖 Analyse Receipt'}
+        </button>
+
+        {loading && (
+          <div style={s.loadingCard}>
+            <div style={s.loadingSteps}>
+              {['Reading receipt items...', 'Calculating CO₂ scores...', 'Generating eco report...'].map((step, i) => (
+                <div key={i} style={s.loadingStep}>
+                  <div style={{ ...s.loadingDot, animationDelay: `${i * 0.4}s` }} />
+                  <span style={{ fontSize: 13, color: '#7a6a5a' }}>{step}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Points preview */}
+        <div style={s.pointsPreview}>
+          <p style={s.pointsPreviewTitle}>Points you can earn</p>
+          <div style={s.pointsGrid}>
+            {[
+              { pts: '+10', label: 'Receipt submitted', icon: '📸' },
+              { pts: '+50', label: 'A+ eco score',      icon: '⭐' },
+              { pts: '+40', label: 'A eco score',       icon: '🌿' },
+              { pts: '+30', label: 'B eco score',       icon: '🌱' },
+            ].map((p, i) => (
+              <div key={i} style={s.pointsItem}>
+                <span style={{ fontSize: 20 }}>{p.icon}</span>
+                <div style={s.pointsItemVal}>{p.pts}</div>
+                <div style={s.pointsItemLabel}>{p.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
+
+      <style>{`
+        @keyframes glowPulse { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.05)} }
+        @keyframes spin { to{transform:rotate(360deg)} }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+      `}</style>
     </div>
-  );
+  )
+}
+
+const s = {
+  page: { minHeight: '100vh', fontFamily: 'Manrope, sans-serif', position: 'relative', overflowX: 'hidden' },
+  bgBase: { position: 'fixed', inset: 0, background: 'linear-gradient(145deg, #e8f5e9 0%, #f0f7f0 50%, #e0f2f1 100%)', zIndex: 0 },
+  bgGlow1: { position: 'fixed', top: '-10%', right: '-5%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(26,107,60,0.1) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0, animation: 'glowPulse 5s ease-in-out infinite' },
+  bgGlow2: { position: 'fixed', bottom: '-10%', left: '-5%', width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,155,90,0.07) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 },
+
+  nav: { position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'rgba(240,247,240,0.88)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(26,107,60,0.08)' },
+  backBtn: { background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(26,107,60,0.15)', borderRadius: 100, padding: '8px 16px', fontSize: 13, fontWeight: 600, color: '#1a6b3c', cursor: 'pointer' },
+  navTitle: { fontFamily: 'Fraunces, serif', fontWeight: 900, fontSize: 17, color: '#1a3d1a' },
+  navHome: { background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(26,107,60,0.15)', borderRadius: 100, padding: '8px 14px', fontSize: 13, fontWeight: 600, color: '#1a6b3c', cursor: 'pointer' },
+
+  uploadWrap: { maxWidth: 540, margin: '0 auto', padding: '28px 20px 60px', position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 16 },
+  header: { textAlign: 'center', marginBottom: 8 },
+  headerIcon: { fontSize: 52, marginBottom: 12 },
+  headerTitle: { fontFamily: 'Fraunces, serif', fontWeight: 900, fontSize: 30, color: '#1a3d1a', marginBottom: 10 },
+  headerSub: { color: '#5a7a5a', fontSize: 14, lineHeight: 1.6, maxWidth: 380, margin: '0 auto' },
+
+  dropZone: { border: '2px dashed', borderRadius: 20, minHeight: 200, cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)', overflow: 'hidden', position: 'relative' },
+  dropContent: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', gap: 10 },
+  dropIcon: { fontSize: 52, marginBottom: 4 },
+  dropTitle: { fontFamily: 'Fraunces, serif', fontWeight: 700, fontSize: 20, color: '#1a3d1a', margin: 0 },
+  dropSub: { fontSize: 13, color: '#5a7a5a', margin: 0 },
+  dropHints: { display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 },
+  dropHint: { background: 'rgba(255,255,255,0.8)', borderRadius: 100, padding: '5px 12px', fontSize: 12, fontWeight: 600, color: '#5a7a5a', border: '1px solid rgba(26,107,60,0.15)' },
+
+  previewWrap: { position: 'relative', width: '100%' },
+  previewImg: { width: '100%', maxHeight: 320, objectFit: 'contain', display: 'block' },
+
+  fileInfo: { display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(26,107,60,0.06)', border: '1px solid rgba(26,107,60,0.15)', borderRadius: 14, padding: '12px 16px' },
+  fileName: { fontSize: 14, fontWeight: 600, color: '#1a3d1a' },
+  fileSize: { fontSize: 12, color: '#5a7a5a' },
+  removeBtn: { background: 'rgba(220,38,38,0.08)', border: 'none', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', color: '#dc2626', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+
+  errorBox: { background: '#fff5f5', border: '1.5px solid #fecaca', color: '#dc2626', borderRadius: 12, padding: '12px 16px', fontSize: 13, fontWeight: 500 },
+
+  spinner: { width: 20, height: 20, border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid white', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' },
+
+  loadingCard: { background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,107,60,0.1)', borderRadius: 14, padding: '16px 20px' },
+  loadingSteps: { display: 'flex', flexDirection: 'column', gap: 10 },
+  loadingStep: { display: 'flex', alignItems: 'center', gap: 10 },
+  loadingDot: { width: 8, height: 8, borderRadius: '50%', background: '#1a6b3c', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0 },
+
+  pointsPreview: { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.9)', borderRadius: 20, padding: '20px', boxShadow: '0 4px 20px rgba(26,107,60,0.07)' },
+  pointsPreviewTitle: { fontSize: 12, fontWeight: 700, color: '#5a7a5a', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14, textAlign: 'center' },
+  pointsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 },
+  pointsItem: { textAlign: 'center', padding: '12px 6px', background: 'rgba(255,255,255,0.8)', borderRadius: 14, border: '1px solid rgba(26,107,60,0.1)', display: 'flex', flexDirection: 'column', gap: 4 },
+  pointsItemVal: { fontFamily: 'Fraunces, serif', fontWeight: 900, fontSize: 16, color: '#1a6b3c' },
+  pointsItemLabel: { fontSize: 10, color: '#5a7a5a', lineHeight: 1.3 },
+
+  resultsWrap: { maxWidth: 580, margin: '0 auto', padding: '24px 20px 60px', position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 16 },
+
+  scoreHero: { borderRadius: 24, padding: '32px 24px', background: 'linear-gradient(135deg, #1a3d1a 0%, #1a6b3c 60%, #2d9b5a 100%)', textAlign: 'center', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 60px rgba(26,61,26,0.25)' },
+  scoreDecos: { position: 'absolute', inset: 0, pointerEvents: 'none' },
+  scoreDeco1: { position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle, rgba(163,217,119,0.2) 0%, transparent 70%)' },
+  scoreDeco2: { position: 'absolute', bottom: -30, left: -30, width: 130, height: 130, borderRadius: '50%', background: 'radial-gradient(circle, rgba(82,199,126,0.15) 0%, transparent 70%)' },
+  scoreLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 },
+  scoreBadge: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 100, height: 100, borderRadius: '50%', fontFamily: 'Fraunces, serif', fontWeight: 900, fontSize: 40, margin: '0 auto 8px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },
+  scoreSubLabel: { fontSize: 14, fontWeight: 700, marginBottom: 24 },
+  scoreStats: { display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: '16px 20px', border: '1px solid rgba(255,255,255,0.1)' },
+  scoreStat: { flex: 1, textAlign: 'center' },
+  scoreStatVal: { fontFamily: 'Fraunces, serif', fontWeight: 900, fontSize: 22, color: 'white', marginBottom: 4 },
+  scoreStatLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 500 },
+  scoreStatDivider: { width: 1, height: 40, background: 'rgba(255,255,255,0.1)' },
+
+  pointsToast: { display: 'flex', alignItems: 'center', gap: 14, background: 'rgba(26,107,60,0.08)', border: '1.5px solid rgba(26,107,60,0.2)', borderRadius: 16, padding: '16px 20px' },
+  toastTitle: { fontSize: 16, fontWeight: 800, color: '#1a6b3c', marginBottom: 3 },
+  toastSub: { fontSize: 12, color: '#5a7a5a' },
+
+  itemsCard: { background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.95)', borderRadius: 20, padding: '20px', boxShadow: '0 4px 20px rgba(26,107,60,0.07)' },
+  itemsTitle: { fontFamily: 'Fraunces, serif', fontWeight: 900, fontSize: 17, color: '#1a3d1a', marginBottom: 14 },
+  itemsList: { display: 'flex', flexDirection: 'column', gap: 10 },
+  itemRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 14px', background: 'rgba(240,247,240,0.8)', borderRadius: 12, border: '1px solid rgba(26,107,60,0.08)' },
+  itemLeft: { display: 'flex', alignItems: 'center', gap: 10, flex: 1 },
+  itemDot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
+  itemName: { fontSize: 13, fontWeight: 600, color: '#1a3d1a', marginBottom: 2 },
+  itemAlt: { fontSize: 11, color: '#1a6b3c', fontWeight: 500 },
+  itemRight: { flexShrink: 0 },
+  itemBadge: { fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 100, whiteSpace: 'nowrap' },
+
+  breakdownCard: { background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.95)', borderRadius: 20, padding: '20px', boxShadow: '0 4px 20px rgba(26,107,60,0.07)', display: 'flex', flexDirection: 'column', gap: 12 },
+  barRow: { display: 'flex', alignItems: 'center', gap: 10 },
+  barLabel: { fontSize: 12, color: '#1a3d1a', fontWeight: 600, width: 100, flexShrink: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' },
+  barTrack: { flex: 1, height: 8, background: 'rgba(26,107,60,0.08)', borderRadius: 10, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 10, transition: 'width 1s cubic-bezier(0.22,1,0.36,1)' },
+  barVal: { fontSize: 12, fontWeight: 700, width: 48, textAlign: 'right', flexShrink: 0 },
+
+  actionRow: { display: 'flex', gap: 12 },
 }

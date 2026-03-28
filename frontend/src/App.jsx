@@ -7,6 +7,7 @@ import OnlineMode from './pages/OnlineMode'
 import Leaderboard from './pages/Leaderboard'
 import useStore from './store/useStore'
 import Profile from './pages/Profile'
+import HowItWorks from './pages/HowItWorks'
 
 
 function ProtectedRoute({ children }) {
@@ -34,6 +35,7 @@ export default function App() {
           <ProtectedRoute><Leaderboard /></ProtectedRoute>
         } />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/onboarding" element={<HowItWorks />} />
       </Routes>
     </BrowserRouter>
   )
