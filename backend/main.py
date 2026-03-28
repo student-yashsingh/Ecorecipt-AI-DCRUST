@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import FastAPI, Depends, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -274,9 +276,23 @@ async def analyze_receipt(
     )
     db.add(purchase)
 
+    from datetime import datetime, date
+
     user.total_points += points_earned
     user.total_carbon_saved_kg = round(user.total_carbon_saved_kg, 3)
     user.tier = calculate_tier(user.total_points)
+
+# Streak logic
+    today = date.today()
+    if user.last_active_date is None:
+        user.streak_days = 1
+    elif user.last_active_date.date() == today:
+        pass  # already active today
+    elif (today - user.last_active_date.date()).days == 1:
+        user.streak_days += 1  # consecutive day
+    else:
+        user.streak_days = 1  # reset
+    user.last_active_date = datetime.now()
 
     db.commit()
 
@@ -289,4 +305,5 @@ async def analyze_receipt(
         "new_total_points": user.total_points,
         "tier":             user.tier,
         "receipt_date":     result["receipt_date"],
+        "streak_days":      user.streak_days,
     }
