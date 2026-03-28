@@ -147,5 +147,77 @@ def verify_purchase(db: Session = Depends(get_db)):
 # ─────────────────────────────────────────
 
 @app.post("/api/receipt/analyze")
-def analyze_receipt(db: Session = Depends(get_db)):
-    return {"message": "receipt analyze endpoint — coming in Phase 5"}
+async def analyze_receipt(
+    file: UploadFile = File(...),
+    user_data: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from receipt_parser import parse_receipt
+    from points_service import (
+        RECEIPT_SUBMITTED, ECO_SCORE_A_PLUS, ECO_SCORE_A,
+        ECO_SCORE_B, ECO_SCORE_C, ECO_SCORE_D, ECO_SCORE_F,
+        calculate_tier
+    )
+    import uuid
+
+    # Step 1 — Read uploaded image bytes
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="No image received.")
+
+    # Step 2 — Run Gemini OCR + carbon scoring
+    try:
+        result = parse_receipt(image_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+    # Step 3 — Calculate points for this receipt
+    score_points_map = {
+        "A+": ECO_SCORE_A_PLUS,
+        "A":  ECO_SCORE_A,
+        "B":  ECO_SCORE_B,
+        "C":  ECO_SCORE_C,
+        "D":  ECO_SCORE_D,
+        "F":  ECO_SCORE_F,
+    }
+    points_earned = RECEIPT_SUBMITTED + score_points_map.get(result["eco_score"], 0)
+
+    # Step 4 — Get user from DB
+    user = db.query(models.User).filter(
+        models.User.firebase_uid == user_data["uid"]
+    ).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    # Step 5 — Save purchase record
+    purchase = models.Purchase(
+        user_id=user.id,
+        mode="receipt",
+        items=result["items"],
+        total_carbon_kg=result["total_carbon_kg"],
+        eco_score=result["eco_score"],
+        points_earned=points_earned,
+        receipt_verified="valid",
+    )
+    db.add(purchase)
+
+    # Step 6 — Update user totals
+    user.total_points += points_earned
+    user.total_carbon_saved_kg = round(user.total_carbon_saved_kg, 3)
+    user.tier = calculate_tier(user.total_points)
+
+    db.commit()
+
+    # Step 7 — Return full result to frontend
+    return {
+        "eco_score":       result["eco_score"],
+        "total_carbon_kg": result["total_carbon_kg"],
+        "item_count":      result["item_count"],
+        "items":           result["items"],
+        "points_earned":   points_earned,
+        "new_total_points": user.total_points,
+        "tier":            user.tier,
+        "receipt_date":    result["receipt_date"],
+    }
