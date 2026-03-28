@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
 
-const API = 'http://127.0.0.1:8000'
+const API = 'https://ecorecipt-ai-dcrust-production.up.railway.app'
 
 function carbonColor(score) {
   if (score <= 1.0) return { bg: 'rgba(74,124,89,0.12)',  text: '#2d5a3d', grade: 'A+' }

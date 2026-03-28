@@ -1,0 +1,1 @@
+export const API = 'https://ecorecipt-ai-dcrust-production.up.railway.app'
