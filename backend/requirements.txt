@@ -13,3 +13,4 @@ python-jose
 passlib
 pillow
 nest_asyncio
+groq
