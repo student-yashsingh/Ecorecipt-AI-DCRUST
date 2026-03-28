@@ -12,7 +12,7 @@ if sys.platform == "win32":
 
 APIFY_TOKEN  = os.getenv("APIFY_TOKEN")
 ACTOR_ID     = "jocular_quisling~blinkit-product-scraper"   # krazee_kaushik/blinkit-search-results-scraper
-DEBUG_MODE   = True
+DEBUG_MODE   = False
 
 
 # ─────────────────────────────────────────
@@ -64,7 +64,7 @@ def _parse_apify_response(items: list) -> list:
 
         carbon_info  = assign_carbon_score(name)
         raw_name     = name.strip()
-        display_name = f"{raw_name} ({unit})" if unit else raw_name
+        display_name = raw_name if unit and unit in raw_name else (f"{raw_name} ({unit})" if unit else raw_name)
 
         products.append({
             "id":               pid,

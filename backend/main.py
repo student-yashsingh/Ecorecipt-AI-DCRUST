@@ -127,9 +127,14 @@ def get_leaderboard(db: Session = Depends(get_db)):
 # ─────────────────────────────────────────
 
 @app.get("/api/online/search")
-def search_products(query: str = "", pincode: str = "121001"):
-    return {"message": "search endpoint — coming in Phase 3"}
-
+async def online_search(query: str, pincode: str = "121001"):
+    from blinkit_scraper import search_blinkit
+    products = await search_blinkit(query, pincode)
+    return {
+        "results": products,
+        "count":   len(products),
+        "pincode": pincode,
+    }
 @app.post("/api/online/cart/save")
 def save_cart(db: Session = Depends(get_db)):
     return {"message": "cart save endpoint — coming in Phase 4"}
