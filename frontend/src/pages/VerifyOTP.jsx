@@ -61,7 +61,7 @@ export default function VerifyOTP() {
       const token     = await fbUser.getIdToken()
       setFirebaseUser(fbUser)
 
-      const res  = await fetch('http://localhost:8000/api/auth/login', {
+      const res = await fetch('https://ecorecipt-ai-dcrust-production.up.railway.app/api/auth/login', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
