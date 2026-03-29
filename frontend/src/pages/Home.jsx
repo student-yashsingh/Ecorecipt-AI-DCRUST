@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
+import { API } from '../api'
 
 const TIER_CONFIG = {
   Bronze:   { gradient: 'linear-gradient(135deg, #cd7f32, #a0522d)', emoji: '🥉', next: 500,  nextName: 'Silver'   },
@@ -47,7 +48,7 @@ export default function Home() {
   useEffect(() => {
     if (!user || !firebaseUser) return
     firebaseUser.getIdToken().then(token => {
-      fetch('http://localhost:8000/api/user/profile', {
+      fetch(`${API}/api/user/profile`, {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then(r => r.json())

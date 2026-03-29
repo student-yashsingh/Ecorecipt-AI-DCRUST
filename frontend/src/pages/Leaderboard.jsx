@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
-
-const API = 'https://ecorecipt-ai-dcrust-production.up.railway.app'
+import { API } from '../api'
 
 const TIER_CONFIG = {
   Bronze:   { gradient: 'linear-gradient(135deg, #cd7f32, #a0522d)', emoji: '🥉' },
