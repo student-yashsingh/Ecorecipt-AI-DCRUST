@@ -114,7 +114,7 @@ async def search_blinkit(query: str, pincode: str = "121001") -> list:
         "use_proxy": True,
     }
 
-    url = f"https://api.apify.com/v2/acts/{ACTOR_ID}/run-sync-get-dataset-items?token={APIFY_TOKEN}"
+    url = f"https://api.apify.com/v2/acts/{ACTOR_ID}/run-sync-get-dataset-items?token={APIFY_TOKEN}&maxItems=20"
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
