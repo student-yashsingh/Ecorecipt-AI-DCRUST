@@ -25,11 +25,18 @@ const TYPEWORDS = [
   'Make every meal count.',
 ]
 
+const DEMO_NUMBERS = [
+  { num: '4567890123', label: '+91 4567 890 123' },
+  { num: '2345678901', label: '+91 2345 678 901' },
+  { num: '6789012345', label: '+91 6789 012 345' },
+  { num: '1234567890', label: '+91 1234 567 890' },
+]
+
 function useTypewriter(words, speed = 75, pause = 2000) {
-  const [idx, setIdx]       = useState(0)
-  const [sub, setSub]       = useState(0)
-  const [del, setDel]       = useState(false)
-  const [text, setText]     = useState('')
+  const [idx, setIdx]   = useState(0)
+  const [sub, setSub]   = useState(0)
+  const [del, setDel]   = useState(false)
+  const [text, setText] = useState('')
 
   useEffect(() => {
     if (!del && sub === words[idx].length) {
@@ -87,12 +94,11 @@ export default function Login() {
   return (
     <div style={s.page}>
 
-      {/* ── Background texture ── */}
       <div style={s.bgBase} />
       <div style={s.bgGlow1} />
       <div style={s.bgGlow2} />
 
-      {/* ── Floating groceries ── */}
+      {/* Floating groceries */}
       {FLOATING.map((f, i) => (
         <div key={i} style={{
           position: 'fixed', left: `${f.x}%`, top: `${f.y}%`,
@@ -115,7 +121,6 @@ export default function Login() {
 
           {/* Main visual */}
           <div style={s.heroVisual}>
-            {/* Rotating ring */}
             <div style={s.ringOuter}>
               {['🥦','🍅','🥛','🌾','🧈','🥕'].map((e, i) => (
                 <div key={i} style={{
@@ -135,13 +140,11 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Typewriter */}
             <div style={s.typeBox}>
               <span style={s.typeText}>{typed}</span>
               <span style={s.typeCursor}>|</span>
             </div>
 
-            {/* Stats */}
             <div style={s.statsRow}>
               {[
                 { val: '2.4kg', label: 'CO₂ Saved Daily', icon: '🌍' },
@@ -177,10 +180,8 @@ export default function Login() {
       <div style={s.right}>
         <div style={s.formCard}>
 
-          {/* Card top accent */}
           <div style={s.cardAccent} />
 
-          {/* Header */}
           <div style={s.cardHeader}>
             <div style={s.cardEmoji}>👋</div>
             <h2 style={s.cardTitle}>Welcome back</h2>
@@ -217,26 +218,18 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Error */}
           {error && (
-            <div style={s.errorBox}>
-              <span>⚠️</span> {error}
-            </div>
+            <div style={s.errorBox}><span>⚠️</span> {error}</div>
           )}
-
-          {/* Success */}
           {sent && (
-            <div style={s.successBox}>
-              <span>✅</span> OTP sent! Redirecting...
-            </div>
+            <div style={s.successBox}><span>✅</span> OTP sent! Redirecting...</div>
           )}
 
-          {/* Button */}
           <button
             className="btn-primary"
             onClick={sendOTP}
             disabled={loading || sent || phone.length < 10}
-            style={{ width: '100%', padding: '15px 0', fontSize: 16, marginBottom: 24 }}
+            style={{ width: '100%', padding: '15px 0', fontSize: 16, marginBottom: 20 }}
           >
             {loading
               ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
@@ -246,19 +239,53 @@ export default function Login() {
             }
           </button>
 
-          {/* Divider */}
+          {/* ── DEMO BOX ── */}
+          <div style={s.demoBox}>
+            <div style={s.demoHeader}>
+              <span style={s.demoBadge}>🧪 DEMO</span>
+              <span style={s.demoHeading}>Judge / Tester Access</span>
+            </div>
+            <p style={s.demoDesc}>
+              Click any number below · OTP is always <strong style={{ color: 'var(--olive-dark)' }}>123456</strong>
+            </p>
+            <div style={s.demoGrid}>
+              {DEMO_NUMBERS.map((d, i) => (
+                <button
+                  key={i}
+                  style={{
+                    ...s.demoChip,
+                    background: phone === d.num ? 'rgba(74,124,89,0.12)' : 'white',
+                    borderColor: phone === d.num ? 'var(--olive)' : 'rgba(74,124,89,0.2)',
+                    color: phone === d.num ? 'var(--olive-dark)' : 'var(--brown)',
+                  }}
+                  onClick={() => { setPhone(d.num); setError('') }}
+                >
+                  📱 {d.label}
+                </button>
+              ))}
+            </div>
+            <div style={s.demoOtpHint}>
+              <span style={s.demoOtpBox}>1</span>
+              <span style={s.demoOtpBox}>2</span>
+              <span style={s.demoOtpBox}>3</span>
+              <span style={s.demoOtpBox}>4</span>
+              <span style={s.demoOtpBox}>5</span>
+              <span style={s.demoOtpBox}>6</span>
+              <span style={{ fontSize: 11, color: 'var(--brown-light)', marginLeft: 8 }}>← always this OTP</span>
+            </div>
+          </div>
+
           <div style={s.divider}>
             <div style={s.divLine} />
             <span style={s.divText}>secure & private</span>
             <div style={s.divLine} />
           </div>
 
-          {/* Trust row */}
           <div style={s.trustRow}>
             {[
-              { icon: '🔒', title: 'OTP Auth',    sub: 'Firebase secured' },
-              { icon: '🌿', title: 'Eco Rewards',  sub: 'Earn every shop'  },
-              { icon: '🤖', title: 'Gemini AI',    sub: 'Smart analysis'   },
+              { icon: '🔒', title: 'OTP Auth',   sub: 'Firebase secured' },
+              { icon: '🌿', title: 'Eco Rewards', sub: 'Earn every shop'  },
+              { icon: '🤖', title: 'Groq AI',     sub: 'Smart analysis'   },
             ].map((b, i) => (
               <div key={i} style={s.trustCard}>
                 <div style={{ fontSize: 26, marginBottom: 4 }}>{b.icon}</div>
@@ -301,9 +328,13 @@ export default function Login() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
-        @media (max-width: 900px) {
-          .login-left { display: none !important; }
-          .login-right { width: 100% !important; }
+        @keyframes shimmerFill {
+          0%   { background-position: 0% center; }
+          100% { background-position: 200% center; }
+        }
+        .demo-chip:hover {
+          background: rgba(74,124,89,0.08) !important;
+          transform: translateY(-1px);
         }
       `}</style>
     </div>
@@ -334,7 +365,6 @@ const s = {
     pointerEvents: 'none', zIndex: 0,
   },
 
-  // LEFT
   left: {
     width: '52%', position: 'relative', zIndex: 1,
     background: 'linear-gradient(160deg, #1c1208 0%, #2d1f14 45%, #3a2518 100%)',
@@ -363,7 +393,6 @@ const s = {
     display: 'flex', flexDirection: 'column',
     alignItems: 'center', gap: 32,
   },
-
   ringOuter: {
     position: 'relative', width: 260, height: 260,
     animation: 'ringRotate 20s linear infinite',
@@ -380,7 +409,6 @@ const s = {
     boxShadow: '0 0 50px rgba(74,124,89,0.4), 0 0 100px rgba(74,124,89,0.15)',
     animation: 'glowPulse 3s ease-in-out infinite',
   },
-
   typeBox: {
     background: 'rgba(255,255,255,0.06)', borderRadius: 14,
     padding: '12px 24px', border: '1px solid rgba(255,255,255,0.08)',
@@ -388,14 +416,12 @@ const s = {
   },
   typeText: {
     color: 'rgba(250,246,241,0.8)', fontSize: 15,
-    fontFamily: 'Cormorant Garamond, serif', fontStyle: 'italic',
-    letterSpacing: '0.03em',
+    fontStyle: 'italic', letterSpacing: '0.03em',
   },
   typeCursor: {
-    color: 'var(--terra-light)', fontSize: 18,
+    color: '#c1663a', fontSize: 18,
     animation: 'cursorBlink 1s step-end infinite',
   },
-
   statsRow: { display: 'flex', gap: 12, width: '100%' },
   statCard: {
     flex: 1, background: 'rgba(255,255,255,0.05)',
@@ -403,88 +429,81 @@ const s = {
     border: '1px solid rgba(255,255,255,0.07)',
   },
   statVal: {
-    color: 'var(--cream)', fontWeight: 800, fontSize: 22,
-    fontFamily: 'Playfair Display, serif',
+    color: '#faf6f1', fontWeight: 800, fontSize: 22,
   },
-  statLabel: { color: 'rgba(250,246,241,0.45)', fontSize: 10, marginTop: 3, fontWeight: 500 },
-
+  statLabel: { color: 'rgba(250,246,241,0.45)', fontSize: 10, marginTop: 3 },
   tierRow: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   tierBadge: {
     padding: '6px 14px', borderRadius: 100,
-    fontSize: 12, fontWeight: 700, color: 'var(--cream)',
+    fontSize: 12, fontWeight: 700, color: '#faf6f1',
   },
 
-  // RIGHT
   right: {
     flex: 1, display: 'flex', alignItems: 'center',
     justifyContent: 'center', padding: '32px 24px',
     position: 'relative', zIndex: 1,
+    overflowY: 'auto',
   },
   formCard: {
     width: '100%', maxWidth: 420, position: 'relative',
     background: 'rgba(255,255,255,0.82)',
     backdropFilter: 'blur(24px)',
     border: '1px solid rgba(255,255,255,0.95)',
-    borderRadius: 28,
-    padding: '36px 32px',
+    borderRadius: 28, padding: '36px 32px',
     boxShadow: '0 20px 60px rgba(45,31,20,0.12), 0 4px 16px rgba(45,31,20,0.06)',
     overflow: 'hidden',
   },
   cardAccent: {
     position: 'absolute', top: 0, left: 0, right: 0, height: 4,
-    background: 'linear-gradient(90deg, var(--olive), var(--terra), var(--olive-light))',
+    background: 'linear-gradient(90deg, #4a7c59, #c1663a, #4a7c59)',
     backgroundSize: '200% auto',
     animation: 'shimmerFill 3s linear infinite',
   },
   cardHeader: { textAlign: 'center', marginBottom: 20 },
   cardEmoji: { fontSize: 42, marginBottom: 8 },
   cardTitle: {
-    fontSize: 28, fontWeight: 900, color: 'var(--brown)',
-    fontFamily: 'Playfair Display, serif', marginBottom: 6,
+    fontSize: 28, fontWeight: 900, color: '#2d1f14',
+    marginBottom: 6,
   },
-  cardSub: { color: 'var(--brown-light)', fontSize: 13, lineHeight: 1.5 },
-
+  cardSub: { color: '#7a6a5a', fontSize: 13, lineHeight: 1.5 },
   groceryStrip: {
     display: 'flex', justifyContent: 'space-between',
-    background: 'var(--beige)', borderRadius: 12,
+    background: '#f5ede0', borderRadius: 12,
     padding: '8px 14px', marginBottom: 20,
-    border: '1px solid var(--beige-dark)',
+    border: '1px solid #e8d5b8',
   },
-
   label: {
     display: 'block', fontSize: 11, fontWeight: 700,
-    color: 'var(--olive-dark)', textTransform: 'uppercase',
+    color: '#2d5a3d', textTransform: 'uppercase',
     letterSpacing: '0.08em', marginBottom: 8,
   },
   inputRow: { display: 'flex', gap: 10 },
   countryCode: {
-    background: 'var(--beige)', border: '1.5px solid var(--beige-dark)',
+    background: '#f5ede0', border: '1.5px solid #e8d5b8',
     borderRadius: 12, padding: '13px 14px',
-    fontWeight: 700, color: 'var(--brown)', fontSize: 14,
+    fontWeight: 700, color: '#2d1f14', fontSize: 14,
     whiteSpace: 'nowrap', display: 'flex', alignItems: 'center',
   },
   input: {
     flex: 1, background: 'rgba(255,255,255,0.9)',
-    border: '1.5px solid var(--beige-dark)',
+    border: '1.5px solid #e8d5b8',
     borderRadius: 12, padding: '13px 16px',
     fontSize: 16, fontFamily: 'DM Sans, sans-serif',
-    color: 'var(--warm-black)', outline: 'none',
+    color: '#2d1f14', outline: 'none',
     transition: 'all 0.3s ease',
   },
-
   errorBox: {
     background: '#fff5f2', border: '1.5px solid #f5c5b0',
-    color: 'var(--terra-dark)', borderRadius: 12,
+    color: '#8b3a1a', borderRadius: 12,
     padding: '10px 14px', fontSize: 13, fontWeight: 500,
     marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8,
   },
   successBox: {
     background: '#f0faf4', border: '1.5px solid #b8e6c8',
-    color: 'var(--olive-dark)', borderRadius: 12,
+    color: '#2d5a3d', borderRadius: 12,
     padding: '10px 14px', fontSize: 13, fontWeight: 500,
     marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8,
   },
-
   spinner: {
     width: 18, height: 18,
     border: '2px solid rgba(255,255,255,0.3)',
@@ -492,21 +511,67 @@ const s = {
     display: 'inline-block', animation: 'spin 0.8s linear infinite',
   },
 
-  divider: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 },
-  divLine: { flex: 1, height: 1, background: 'var(--beige-dark)' },
-  divText: { fontSize: 11, color: 'var(--brown-light)', whiteSpace: 'nowrap' },
+  // ── Demo box ──
+  demoBox: {
+    background: 'linear-gradient(135deg, rgba(74,124,89,0.06), rgba(45,155,90,0.04))',
+    border: '1.5px dashed rgba(74,124,89,0.3)',
+    borderRadius: 16, padding: '16px',
+    marginBottom: 20,
+  },
+  demoHeader: {
+    display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6,
+  },
+  demoBadge: {
+    background: 'rgba(74,124,89,0.15)', color: '#2d5a3d',
+    borderRadius: 100, padding: '2px 8px',
+    fontSize: 10, fontWeight: 800, letterSpacing: '0.05em',
+  },
+  demoHeading: {
+    fontSize: 13, fontWeight: 800, color: '#2d1f14',
+  },
+  demoDesc: {
+    fontSize: 11, color: '#7a6a5a', marginBottom: 12, lineHeight: 1.5,
+  },
+  demoGrid: {
+    display: 'grid', gridTemplateColumns: '1fr 1fr',
+    gap: 8, marginBottom: 12,
+  },
+  demoChip: {
+    background: 'white',
+    border: '1px solid rgba(74,124,89,0.2)',
+    borderRadius: 10, padding: '9px 10px',
+    fontSize: 11, fontWeight: 600,
+    cursor: 'pointer', textAlign: 'left',
+    transition: 'all 0.2s ease',
+    fontFamily: 'DM Sans, sans-serif',
+  },
+  demoOtpHint: {
+    display: 'flex', alignItems: 'center', gap: 4,
+    background: 'rgba(255,255,255,0.7)',
+    borderRadius: 10, padding: '8px 12px',
+    border: '1px solid rgba(74,124,89,0.1)',
+  },
+  demoOtpBox: {
+    width: 24, height: 28,
+    background: 'white', border: '1.5px solid rgba(74,124,89,0.25)',
+    borderRadius: 6, display: 'inline-flex',
+    alignItems: 'center', justifyContent: 'center',
+    fontSize: 13, fontWeight: 800, color: '#2d5a3d',
+  },
 
+  divider: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 },
+  divLine: { flex: 1, height: 1, background: '#e8d5b8' },
+  divText: { fontSize: 11, color: '#7a6a5a', whiteSpace: 'nowrap' },
   trustRow: { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 20 },
   trustCard: {
     textAlign: 'center', padding: '14px 8px',
-    background: 'var(--beige)', borderRadius: 14,
-    border: '1px solid var(--beige-dark)',
+    background: '#f5ede0', borderRadius: 14,
+    border: '1px solid #e8d5b8',
   },
-  trustTitle: { fontSize: 11, fontWeight: 700, color: 'var(--brown)', marginBottom: 2 },
-  trustSub: { fontSize: 10, color: 'var(--brown-light)' },
-
+  trustTitle: { fontSize: 11, fontWeight: 700, color: '#2d1f14', marginBottom: 2 },
+  trustSub: { fontSize: 10, color: '#7a6a5a' },
   footer: {
     textAlign: 'center', fontSize: 11,
-    color: 'var(--brown-light)', lineHeight: 1.7,
+    color: '#7a6a5a', lineHeight: 1.7,
   },
 }
