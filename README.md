@@ -1,5 +1,5 @@
 # 🌿 EcoReceipt AI
-
+live at :- https://ecoreciptai.netlify.app/
 <div align="center">
 
 **A gamified web app that helps Indian consumers understand and reduce the carbon footprint of their grocery shopping.**
