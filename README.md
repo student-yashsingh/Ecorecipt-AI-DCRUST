@@ -660,9 +660,9 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE) for de
 
 <div align="center">
 
-**Built with ❤️ for the Planet**
+**Built with ❤️ by Yash AND Ankit**
 
-*Google Developer Group · DCRUST Hackathon 2025*
+*Google Developer Group · DCRUST Hackathon 2026*
 
 🌿 *EcoReceipt AI — Making every grocery choice count.*
 
