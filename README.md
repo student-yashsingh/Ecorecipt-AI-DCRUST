@@ -71,7 +71,7 @@ Splash Screen → Login (OTP) → Onboarding → Home Dashboard
                         Results Page                    Order on Blinkit
                                                         Upload Screenshot
                                                         Gemini Verify
-                                                        Order Success 🎉
+                                                        Order Success 
 ```
 
 ### Pages
@@ -91,7 +91,7 @@ Splash Screen → Login (OTP) → Onboarding → Home Dashboard
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 ### Frontend
 | Technology | Version | Purpose |
@@ -135,7 +135,7 @@ React SPA → FastAPI Backend → PostgreSQL
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 ecoreceipt-ai/
