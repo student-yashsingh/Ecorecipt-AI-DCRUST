@@ -2,12 +2,12 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCFh7-3Kvt-X9YF_fgZXhausMpe07aFqSI",
-  authDomain: "ecoreceipt-ai-7f555.firebaseapp.com",
-  projectId: "ecoreceipt-ai-7f555",
-  storageBucket: "ecoreceipt-ai-7f555.firebasestorage.app",
-  messagingSenderId: "167846093599",
-  appId: "1:167846093599:web:1ee0f84e2e8f1999ac462a"
+  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
