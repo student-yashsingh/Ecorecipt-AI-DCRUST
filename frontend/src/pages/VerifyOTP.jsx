@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useStore from '../store/useStore'
+import { API } from '../api'
 
 export default function VerifyOTP() {
   const navigate              = useNavigate()
@@ -61,7 +62,7 @@ export default function VerifyOTP() {
       const token     = await fbUser.getIdToken()
       setFirebaseUser(fbUser)
 
-      const res = await fetch('https://ecorecipt-ai-dcrust-production.up.railway.app/api/auth/login', {
+      const res = await fetch(`${API}/api/auth/login`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -74,7 +75,8 @@ export default function VerifyOTP() {
       }, 1200)
 
     } catch (err) {
-      setError('Invalid OTP. Please check and try again.')
+      console.error('OTP verify error:', err)
+      setError(err?.message || 'Invalid OTP. Please check and try again.')
     } finally {
       setLoading(false)
     }
