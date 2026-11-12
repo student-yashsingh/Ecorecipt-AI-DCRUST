@@ -38,7 +38,7 @@ def parse_receipt(image_bytes: bytes) -> dict:
 
     # Step 2 — Send to Groq vision model
     response = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        model="qwen/qwen3.8-27b",
         messages=[
             {
                 "role": "user",
